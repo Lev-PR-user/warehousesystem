@@ -46,9 +46,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           _productFuture = Future.value(updatedProduct);
           _isLoading = false;
         });
-        debugPrint(
-          '✅ Товар загружен: ${updatedProduct.name}, количество: ${updatedProduct.quantity}',
-        );
       } else {
         final allProducts = await _productService.getAllProducts();
         final foundProduct = allProducts.firstWhere(
@@ -68,6 +65,136 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         _isLoading = false;
         _productFuture = Future.value(widget.product);
       });
+    }
+  }
+
+  // ✏️ РЕДАКТИРОВАНИЕ ТОВАРА
+  Future<void> _editProduct(Product product) async {
+    if (!widget.userData.isAdmin) {
+      _showErrorSnackBar('Только администратор может редактировать товары');
+      return;
+    }
+
+    final nameController = TextEditingController(text: product.name);
+    final priceController = TextEditingController(
+      text: product.price.toString(),
+    );
+    final categoryIdController = TextEditingController(
+      text: product.categoryId.toString(),
+    );
+    final descriptionController = TextEditingController(
+      text: product.description ?? '',
+    );
+    final quantityController = TextEditingController(
+      text: (product.quantity ?? 0).toString(),
+    );
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Редактирование товара'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Название'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: priceController,
+                decoration: const InputDecoration(labelText: 'Цена'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: categoryIdController,
+                decoration: const InputDecoration(labelText: 'ID категории'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(labelText: 'Описание'),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: quantityController,
+                decoration: const InputDecoration(labelText: 'Количество'),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF3498DB),
+            ),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && mounted) {
+      setState(() => _isLoading = true);
+
+      final success = await _productService.updateProduct(
+        productId: product.productId,
+        name: nameController.text.trim(),
+        price: double.parse(priceController.text),
+        categoryId: int.parse(categoryIdController.text),
+        description: descriptionController.text.trim().isEmpty
+            ? null
+            : descriptionController.text.trim(),
+        quantity: int.tryParse(quantityController.text) ?? 0,
+      );
+
+      setState(() => _isLoading = false);
+
+      if (success && mounted) {
+        _showSuccessSnackBar('✅ Товар обновлён');
+        _refreshProduct();
+        Navigator.pop(context, true);
+      } else if (mounted) {
+        _showErrorSnackBar('❌ Ошибка при обновлении');
+      }
+    }
+  }
+
+  // ❌ УДАЛЕНИЕ ТОВАРА
+  Future<void> _deleteProduct(Product product) async {
+    if (!widget.userData.isAdmin) {
+      _showErrorSnackBar('Только администратор может удалять товары');
+      return;
+    }
+
+    final confirm = await _showConfirmDialog(
+      'Подтверждение удаления',
+      'Удалить товар "${product.name}"?\nЭто действие нельзя отменить.',
+    );
+
+    if (!confirm) return;
+
+    setState(() => _isLoading = true);
+
+    final success = await _productService.deleteProduct(product.productId);
+
+    setState(() => _isLoading = false);
+
+    if (success && mounted) {
+      _showSuccessSnackBar('✅ Товар удалён');
+      Navigator.pop(context, true);
+    } else if (mounted) {
+      _showErrorSnackBar('❌ Ошибка при удалении');
     }
   }
 
@@ -116,8 +243,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
       if (success && mounted) {
         _showSuccessSnackBar('✅ Списано $quantity шт. товара');
-
-        // ВАЖНО: возвращаем true и закрываем экран
         Navigator.pop(context, true);
       } else {
         setState(() => _isLoading = false);
@@ -162,8 +287,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
       if (success && mounted) {
         _showSuccessSnackBar('✅ Добавлено $quantity шт. товара');
-
-        // ВАЖНО: возвращаем true и закрываем экран
         Navigator.pop(context, true);
       } else {
         setState(() => _isLoading = false);
@@ -292,11 +415,36 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
         centerTitle: true,
         actions: [
+          // Кнопка обновления
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refreshProduct,
             color: const Color(0xFF2C3E50),
           ),
+          // ✏️ Кнопка редактирования (только для админов)
+          if (widget.userData.isAdmin)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, color: Color(0xFF3498DB)),
+              onPressed: () async {
+                final product = await _productFuture;
+                if (product != null) {
+                  await _editProduct(product);
+                }
+              },
+              tooltip: 'Редактировать',
+            ),
+          // ❌ Кнопка удаления (только для админов)
+          if (widget.userData.isAdmin)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Color(0xFFE74C3C)),
+              onPressed: () async {
+                final product = await _productFuture;
+                if (product != null) {
+                  await _deleteProduct(product);
+                }
+              },
+              tooltip: 'Удалить',
+            ),
         ],
       ),
       body: _isLoading
@@ -846,7 +994,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 ],
                               ),
                             ] else ...[
-                              // Для обычных пользователей показываем информационное сообщение
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(

@@ -23,10 +23,7 @@ class ApiService {
 
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
-    } else {
-      print('⚠️ No token found in SharedPreferences');
     }
-
     return headers;
   }
 

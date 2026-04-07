@@ -1,13 +1,10 @@
-import 'package:flutter/material.dart';
 import 'apiservice.dart';
 
 class CategoryService {
   final ApiService _apiService = ApiService();
 
-  // Получение всех категорий
   Future<List<Map<String, dynamic>>> getAllCategories() async {
     try {
-      // Исправленный эндпоинт: /category/categories/all
       final response = await _apiService.get('/category/categories/all');
 
       if (response is List) {
@@ -28,15 +25,12 @@ class CategoryService {
 
       return [];
     } catch (e) {
-      debugPrint('Ошибка получения категорий: $e');
       return [];
     }
   }
 
-  // Получение категории по имени
   Future<Map<String, dynamic>> getCategoryByName(String name) async {
     try {
-      // Исправленный эндпоинт: /category/:name
       final response = await _apiService.get('/category/$name');
 
       if (response is Map) {
@@ -45,12 +39,10 @@ class CategoryService {
 
       return {};
     } catch (e) {
-      debugPrint('Ошибка получения категории по имени: $e');
       return {};
     }
   }
 
-  // Создание новой категории
   Future<Map<String, dynamic>> createCategory(String name) async {
     try {
       final response = await _apiService.post('/category', {'name': name});
@@ -61,12 +53,10 @@ class CategoryService {
 
       return {};
     } catch (e) {
-      debugPrint('Ошибка создания категории: $e');
       rethrow;
     }
   }
 
-  // Обновление категории
   Future<Map<String, dynamic>> updateCategory(
     int categoryId,
     String name,
@@ -82,12 +72,10 @@ class CategoryService {
 
       return {};
     } catch (e) {
-      debugPrint('Ошибка обновления категории: $e');
       rethrow;
     }
   }
 
-  // Удаление категории
   Future<bool> deleteCategory(int categoryId) async {
     try {
       final response = await _apiService.delete('/category/delete/$categoryId');
@@ -98,7 +86,6 @@ class CategoryService {
 
       return false;
     } catch (e) {
-      debugPrint('Ошибка удаления категории: $e');
       return false;
     }
   }

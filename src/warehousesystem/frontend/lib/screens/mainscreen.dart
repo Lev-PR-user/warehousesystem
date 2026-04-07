@@ -4,6 +4,8 @@ import '../models/productdata.dart';
 import 'profilescreen.dart';
 import 'productdetailscreen.dart';
 import 'categoryproductsscreen.dart';
+import 'addproductscreen.dart';
+import 'addcategoryscreen.dart';
 import '../service/categoryservice.dart';
 import '../service/productservice.dart';
 
@@ -40,94 +42,48 @@ class _MainScreenState extends State<MainScreen> {
     });
 
     try {
-      debugPrint('🔄 Начинаем загрузку данных...');
+      final categoriesFuture = _categoryService.getAllCategories();
+      final allProductsFuture = _productService.getAllProducts();
+      final lowStockFuture = _productService.getLowStockProducts(threshold: 10);
+      final statsFuture = _productService.getWarehouseStats();
 
-      // Загружаем все данные параллельно с таймаутом
       final results = await Future.wait([
-        _categoryService.getAllCategories().timeout(
-          const Duration(seconds: 5),
-          onTimeout: () => [],
-        ),
-        _productService
-            .getLowStockProducts(threshold: 10)
-            .timeout(const Duration(seconds: 5), onTimeout: () => []),
-        _productService.getWarehouseStats().timeout(
-          const Duration(seconds: 5),
-          onTimeout: () => ({
-            'total_products': 0,
-            'in_stock_count': 0,
-            'low_stock_count': 0,
-            'out_of_stock_count': 0,
-            'total_value': 0,
-          }),
-        ),
+        categoriesFuture,
+        allProductsFuture,
+        lowStockFuture,
+        statsFuture,
       ]);
 
-      // Детальный вывод товаров с низким остатком
-      List<Product> lowStock = results[1] as List<Product>;
-      debugPrint('📦 ЗАГРУЖЕНО товаров с низким остатком: ${lowStock.length}');
-      for (var p in lowStock) {
-        debugPrint('   ➡️ ${p.name}: ${p.quantity} шт. (ID: ${p.productId})');
+      List<Map<String, dynamic>> categories =
+          results[0] as List<Map<String, dynamic>>;
+      List<Product> allProducts = results[1] as List<Product>;
+      List<Product> lowStock = results[2] as List<Product>;
+      Map<String, dynamic> stats = results[3] as Map<String, dynamic>;
+
+      Map<int, int> productCountByCategory = {};
+      for (var product in allProducts) {
+        productCountByCategory[product.categoryId] =
+            (productCountByCategory[product.categoryId] ?? 0) + 1;
+      }
+
+      for (var i = 0; i < categories.length; i++) {
+        int categoryId = categories[i]['category_id'] ?? 0;
+        categories[i]['products_count'] =
+            productCountByCategory[categoryId] ?? 0;
       }
 
       setState(() {
-        _categories = results[0] as List<Map<String, dynamic>>;
+        _categories = categories;
         _lowStockProducts = lowStock;
-        _stats = results[2] as Map<String, dynamic>;
+        _stats = stats;
         _isLoading = false;
       });
-
-      debugPrint('📊 Статистика на главной: $_stats');
-
-      // Если категории пустые, используем тестовые данные
-      if (_categories.isEmpty) {
-        _loadMockData();
-      }
     } catch (e) {
-      debugPrint('❌ Ошибка загрузки: $e');
       setState(() {
         _error = e.toString();
         _isLoading = false;
       });
-      // Загружаем тестовые данные при ошибке
-      _loadMockData();
     }
-  }
-
-  void _loadMockData() {
-    setState(() {
-      _categories = [
-        {'category_id': 1, 'name': 'Электроника', 'products_count': 245},
-        {'category_id': 2, 'name': 'Одежда', 'products_count': 189},
-        {'category_id': 3, 'name': 'Игрушки', 'products_count': 156},
-        {'category_id': 4, 'name': 'Канцелярия', 'products_count': 324},
-        {'category_id': 5, 'name': 'Бытовая химия', 'products_count': 98},
-        {'category_id': 6, 'name': 'Продукты', 'products_count': 167},
-        {'category_id': 7, 'name': 'Инструменты', 'products_count': 78},
-        {'category_id': 8, 'name': 'Техника', 'products_count': 112},
-      ];
-
-      _stats = {
-        'total_products': 1500,
-        'in_stock_count': 1432,
-        'low_stock_count': 23,
-        'out_of_stock_count': 45,
-        'total_value': 1250000,
-      };
-
-      _lowStockProducts = List.generate(
-        5,
-        (index) => Product(
-          productId: index + 1,
-          name: 'Товар ${index + 1}',
-          description: 'Описание',
-          price: 999.0,
-          categoryId: 1,
-          quantity: 5 + index,
-          isAvailable: true,
-        ),
-      );
-    });
   }
 
   Future<void> _searchProducts(String query) async {
@@ -147,7 +103,6 @@ class _MainScreenState extends State<MainScreen> {
           ),
         );
 
-        // Если нужно обновить после поиска
         if (shouldRefresh == true) {
           _loadData();
         }
@@ -177,6 +132,44 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ),
         actions: [
+          if (widget.userData.isAdmin)
+            IconButton(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddCategoryScreen(),
+                  ),
+                );
+                if (result == true && mounted) {
+                  _loadData();
+                }
+              },
+              icon: const Icon(
+                Icons.category_outlined,
+                color: Color(0xFF9B59B6),
+              ),
+              tooltip: 'Добавить категорию',
+            ),
+          if (widget.userData.isAdmin)
+            IconButton(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddProductScreen(),
+                  ),
+                );
+                if (result == true && mounted) {
+                  _loadData();
+                }
+              },
+              icon: const Icon(
+                Icons.add_circle_outline,
+                color: Color(0xFF2ECC71),
+              ),
+              tooltip: 'Добавить товар',
+            ),
           Container(
             margin: const EdgeInsets.only(right: 4),
             child: CircleAvatar(
@@ -281,7 +274,6 @@ class _MainScreenState extends State<MainScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Приветствие и поиск
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: const BoxDecoration(
@@ -321,7 +313,6 @@ class _MainScreenState extends State<MainScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        // Поле поиска
                         Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFF5F7FA),
@@ -332,8 +323,7 @@ class _MainScreenState extends State<MainScreen> {
                             controller: _searchController,
                             onSubmitted: _searchProducts,
                             decoration: const InputDecoration(
-                              hintText:
-                                  'Поиск товаров по артикулу или названию...',
+                              hintText: 'Поиск товаров...',
                               hintStyle: TextStyle(
                                 color: Colors.grey,
                                 fontSize: 14,
@@ -341,10 +331,6 @@ class _MainScreenState extends State<MainScreen> {
                               border: InputBorder.none,
                               prefixIcon: Icon(
                                 Icons.search,
-                                color: Colors.grey,
-                              ),
-                              suffixIcon: Icon(
-                                Icons.filter_list,
                                 color: Colors.grey,
                               ),
                               contentPadding: EdgeInsets.symmetric(
@@ -359,7 +345,6 @@ class _MainScreenState extends State<MainScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Статистика склада - ПЕРВЫЙ РЯД
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Row(
@@ -387,7 +372,6 @@ class _MainScreenState extends State<MainScreen> {
 
                   const SizedBox(height: 12),
 
-                  // Статистика склада - ВТОРОЙ РЯД
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Row(
@@ -415,7 +399,6 @@ class _MainScreenState extends State<MainScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Категории
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Row(
@@ -429,22 +412,12 @@ class _MainScreenState extends State<MainScreen> {
                             color: Color(0xFF2C3E50),
                           ),
                         ),
-                        TextButton(
-                          onPressed: () {
-                            // Переход на все категории
-                          },
-                          style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFF3498DB),
-                          ),
-                          child: const Text('Все категории'),
-                        ),
                       ],
                     ),
                   ),
 
                   const SizedBox(height: 12),
 
-                  // Сетка категорий
                   if (_categories.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -462,11 +435,9 @@ class _MainScreenState extends State<MainScreen> {
                             ? 8
                             : _categories.length,
                         itemBuilder: (context, index) {
-                          // Защита от выхода за границы массива
                           if (index >= _categories.length) {
                             return const SizedBox.shrink();
                           }
-
                           final category = _categories[index];
                           return CategoryCard(
                             icon: _getCategoryIcon(category['name'] ?? ''),
@@ -482,7 +453,6 @@ class _MainScreenState extends State<MainScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Товары с низким остатком - теперь с правильной проверкой
                   if (_lowStockProducts.isNotEmpty) ...[
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -518,10 +488,7 @@ class _MainScreenState extends State<MainScreen> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 12),
-
-                    // Горизонтальный список товаров с низким остатком
                     SizedBox(
                       height: 200,
                       child: ListView.builder(
@@ -529,7 +496,6 @@ class _MainScreenState extends State<MainScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: _lowStockProducts.length,
                         itemBuilder: (context, index) {
-                          // Защита от выхода за границы массива
                           if (index >= _lowStockProducts.length) {
                             return const SizedBox.shrink();
                           }
@@ -598,18 +564,12 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // ИСПРАВЛЕННЫЙ МЕТОД - теперь правильно отображает статус и обновляет данные
   Widget _buildLowStockCard(Product product) {
     final quantity = product.quantity ?? 0;
     final isLowStock = quantity > 0 && quantity < 10;
 
     return GestureDetector(
       onTap: () async {
-        debugPrint(
-          '👉 Открываем карточку товара: ${product.name} (ID: ${product.productId})',
-        );
-
-        // Ждем результат с экрана деталей
         final shouldRefresh = await Navigator.push(
           context,
           MaterialPageRoute(
@@ -620,15 +580,8 @@ class _MainScreenState extends State<MainScreen> {
           ),
         );
 
-        debugPrint(
-          '👈 Вернулись на главный экран, shouldRefresh = $shouldRefresh',
-        );
-
-        // Если нужно обновить (после списания/пополнения)
-        if (shouldRefresh == true) {
-          debugPrint('🔄 Обновляем главный экран после операции');
+        if (shouldRefresh == true && mounted) {
           await _loadData();
-          debugPrint('✅ Главный экран обновлен');
         }
       },
       child: Container(
@@ -666,7 +619,6 @@ class _MainScreenState extends State<MainScreen> {
                         color: Colors.grey[400],
                       ),
                     ),
-                    // Статус наличия - теперь правильно отображается
                     Positioned(
                       top: 8,
                       right: 8,
@@ -677,14 +629,10 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                         decoration: BoxDecoration(
                           color: isLowStock
-                              ? const Color(0xFFF39C12) // Желтый для мало
+                              ? const Color(0xFFF39C12)
                               : (quantity > 0
-                                    ? const Color(
-                                        0xFF2ECC71,
-                                      ) // Зеленый для достаточно
-                                    : const Color(
-                                        0xFFE74C3C,
-                                      )), // Красный для нет
+                                    ? const Color(0xFF2ECC71)
+                                    : const Color(0xFFE74C3C)),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -699,7 +647,6 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                       ),
                     ),
-                    // Количество
                     Positioned(
                       bottom: 8,
                       left: 8,
@@ -820,9 +767,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// ==================== ОСТАЛЬНЫЕ КЛАССЫ ====================
-
-// Класс для карточки категории
 class CategoryCard extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -903,7 +847,6 @@ class CategoryCard extends StatelessWidget {
   }
 }
 
-// Класс для экрана результатов поиска
 class SearchResultsScreen extends StatelessWidget {
   final String query;
   final List<Product> products;
@@ -924,9 +867,9 @@ class SearchResultsScreen extends StatelessWidget {
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF2C3E50),
-        title: Text(
+        title: const Text(
           'Результаты поиска',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
@@ -979,9 +922,6 @@ class SearchResultsScreen extends StatelessWidget {
                           ),
                       itemCount: products.length,
                       itemBuilder: (context, index) {
-                        if (index >= products.length) {
-                          return const SizedBox.shrink();
-                        }
                         return ProductCard(
                           product: products[index],
                           userData: userData,
@@ -996,7 +936,6 @@ class SearchResultsScreen extends StatelessWidget {
   }
 }
 
-// Класс для карточки товара
 class ProductCard extends StatelessWidget {
   final Product product;
   final UserData userData;
@@ -1005,7 +944,6 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isInStock = product.isAvailable && (product.quantity ?? 0) > 0;
     final quantity = product.quantity ?? 0;
     final isLowStock = quantity > 0 && quantity < 10;
 
@@ -1019,9 +957,7 @@ class ProductCard extends StatelessWidget {
           ),
         );
 
-        // Если нужно обновить после операции
         if (shouldRefresh == true && context.mounted) {
-          // Возвращаем результат на главный экран
           Navigator.pop(context, true);
         }
       },
@@ -1040,7 +976,6 @@ class ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Изображение товара с индикатором наличия
             Expanded(
               flex: 3,
               child: Stack(
@@ -1061,7 +996,6 @@ class ProductCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Индикатор наличия - исправлено
                   Positioned(
                     top: 8,
                     right: 8,
@@ -1071,7 +1005,7 @@ class ProductCard extends StatelessWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: !isInStock
+                        color: quantity <= 0
                             ? const Color(0xFFE74C3C)
                             : (isLowStock
                                   ? const Color(0xFFF39C12)
@@ -1086,7 +1020,7 @@ class ProductCard extends StatelessWidget {
                         ],
                       ),
                       child: Text(
-                        !isInStock
+                        quantity <= 0
                             ? 'Нет'
                             : (isLowStock ? 'Мало' : 'В наличии'),
                         style: const TextStyle(
@@ -1097,7 +1031,6 @@ class ProductCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Количество
                   Positioned(
                     bottom: 8,
                     left: 8,
@@ -1123,7 +1056,6 @@ class ProductCard extends StatelessWidget {
                 ],
               ),
             ),
-            // Информация о товаре
             Expanded(
               flex: 2,
               child: Padding(
@@ -1132,7 +1064,6 @@ class ProductCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Название и артикул
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1156,7 +1087,6 @@ class ProductCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    // Цена
                     Text(
                       '${product.price.toStringAsFixed(0)} ₽',
                       style: const TextStyle(

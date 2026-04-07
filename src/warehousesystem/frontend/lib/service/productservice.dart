@@ -1,11 +1,9 @@
-import 'package:flutter/material.dart';
 import '../models/productdata.dart';
 import 'apiservice.dart';
 
 class ProductService {
   final ApiService _apiService = ApiService();
 
-  // Получение товаров по категории - фильтруем на клиенте
   Future<List<Product>> getProductsByCategory(int categoryId) async {
     try {
       final allProducts = await getAllProducts();
@@ -13,30 +11,20 @@ class ProductService {
           .where((product) => product.categoryId == categoryId)
           .toList();
     } catch (e) {
-      debugPrint('Ошибка получения товаров по категории: $e');
       return [];
     }
   }
 
-  // Получение всех товаров
   Future<List<Product>> getAllProducts() async {
     try {
       final response = await _apiService.get('/product/products/all');
       final products = _processProductResponse(response);
-      debugPrint('📦 Загружено товаров: ${products.length}');
-      for (var p in products) {
-        debugPrint(
-          '   - ${p.name}: количество ${p.quantity}, доступен: ${p.isAvailable}',
-        );
-      }
       return products;
     } catch (e) {
-      debugPrint('❌ Ошибка получения всех товаров: $e');
       return [];
     }
   }
 
-  // Получение товара по имени
   Future<Product?> getProductByName(String name) async {
     try {
       final response = await _apiService.get('/product/$name');
@@ -45,12 +33,22 @@ class ProductService {
       }
       return null;
     } catch (e) {
-      debugPrint('Ошибка получения товара по имени: $e');
       return null;
     }
   }
 
-  // Поиск товаров
+  Future<Product?> getProductById(int productId) async {
+    try {
+      final allProducts = await getAllProducts();
+      return allProducts.firstWhere(
+        (p) => p.productId == productId,
+        orElse: () => throw Exception('Товар не найден'),
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<List<Product>> searchProducts(String query) async {
     try {
       final allProducts = await getAllProducts();
@@ -62,17 +60,14 @@ class ProductService {
           )
           .toList();
     } catch (e) {
-      debugPrint('Ошибка поиска товаров: $e');
       return [];
     }
   }
 
-  // Получение товаров с низким остатком (меньше порога)
   Future<List<Product>> getLowStockProducts({int threshold = 10}) async {
     try {
       final allProducts = await getAllProducts();
 
-      // Товары считаются с низким остатком, если их количество > 0, но < порога
       final lowStock = allProducts
           .where(
             (product) =>
@@ -81,52 +76,30 @@ class ProductService {
           )
           .toList();
 
-      debugPrint(
-        '📦 Товаров с низким остатком (< $threshold): ${lowStock.length}',
-      );
-      for (var p in lowStock) {
-        debugPrint('   - ${p.name}: ${p.quantity} шт.');
-      }
-
       return lowStock;
     } catch (e) {
-      debugPrint('❌ Ошибка получения товаров с низким остатком: $e');
       return [];
     }
   }
 
-  // Получение статистики склада
   Future<Map<String, dynamic>> getWarehouseStats() async {
     try {
       final allProducts = await getAllProducts();
 
       int totalProducts = allProducts.length;
-
-      // Товары в наличии (количество > 0 и доступен)
       int inStockCount = allProducts
           .where((p) => (p.quantity ?? 0) > 0 && p.isAvailable)
           .length;
-
-      // Товары с низким остатком (количество от 1 до 9)
       int lowStockCount = allProducts
           .where((p) => (p.quantity ?? 0) > 0 && (p.quantity ?? 0) < 10)
           .length;
-
-      // Товары не в наличии (количество = 0 или недоступен)
       int outOfStockCount = allProducts
           .where((p) => (p.quantity ?? 0) <= 0 || !p.isAvailable)
           .length;
-
       double totalValue = allProducts.fold(
         0,
         (sum, item) => sum + (item.price * (item.quantity ?? 0)),
       );
-
-      debugPrint('📊 Статистика:');
-      debugPrint('   - Всего товаров: $totalProducts');
-      debugPrint('   - В наличии: $inStockCount');
-      debugPrint('   - Мало на складе: $lowStockCount');
-      debugPrint('   - Нет в наличии: $outOfStockCount');
 
       return {
         'total_products': totalProducts,
@@ -136,7 +109,6 @@ class ProductService {
         'total_value': totalValue,
       };
     } catch (e) {
-      debugPrint('❌ Ошибка получения статистики: $e');
       return {
         'total_products': 0,
         'in_stock_count': 0,
@@ -147,78 +119,129 @@ class ProductService {
     }
   }
 
-  // Увеличение количества товара (пополнение)
+  Future<bool> addProduct({
+    required String name,
+    required double price,
+    required int categoryId,
+    String? description,
+    String? imageUrl,
+    int quantity = 0,
+  }) async {
+    try {
+      final response = await _apiService.post('/product/', {
+        'name': name,
+        'price': price,
+        'description': description,
+        'category_id': categoryId,
+        'image_url': imageUrl,
+        'quantity': quantity,
+        'is_available': quantity > 0,
+      });
+
+      if (response is Map && response['product_id'] != null) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> updateProduct({
+    required int productId,
+    required String name,
+    required double price,
+    required int categoryId,
+    String? description,
+    String? imageUrl,
+    int? quantity,
+    bool? isAvailable,
+  }) async {
+    try {
+      final product = await getProductById(productId);
+      if (product == null) return false;
+
+      final newQuantity = quantity ?? product.quantity ?? 0;
+
+      final response = await _apiService.put('/product/update/$productId', {
+        'name': name,
+        'price': price,
+        'description': description ?? product.description,
+        'category_id': categoryId,
+        'image_url': imageUrl ?? product.imageUrl,
+        'quantity': newQuantity,
+        'is_available': isAvailable ?? (newQuantity > 0),
+      });
+
+      if (response is Map) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> deleteProduct(int productId) async {
+    try {
+      final response = await _apiService.delete('/product/delete/$productId');
+
+      if (response is Map && response['message'] != null) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<bool> increaseStock(int productId, int quantity) async {
     try {
-      debugPrint('🔄 Пополнение товара ID: $productId, количество: $quantity');
-
-      final allProducts = await getAllProducts();
-      final product = allProducts.firstWhere(
-        (p) => p.productId == productId,
-        orElse: () => throw Exception('Товар не найден'),
-      );
+      final product = await getProductById(productId);
+      if (product == null) return false;
 
       final newQuantity = (product.quantity ?? 0) + quantity;
-      debugPrint('📦 Новое количество: $newQuantity');
 
-      final response = await _apiService.put('/product/update/$productId', {
-        'quantity': newQuantity,
-        'name': product.name,
-        'price': product.price,
-        'description': product.description,
-        'category_id': product.categoryId,
-        'is_available': newQuantity > 0,
-      });
-
-      if (response is Map) {
-        return true;
-      }
-      return false;
+      return await updateProduct(
+        productId: productId,
+        name: product.name,
+        price: product.price,
+        categoryId: product.categoryId,
+        description: product.description,
+        imageUrl: product.imageUrl,
+        quantity: newQuantity,
+        isAvailable: newQuantity > 0,
+      );
     } catch (e) {
-      debugPrint('❌ Ошибка пополнения товара: $e');
       return false;
     }
   }
 
-  // Уменьшение количества товара (списание)
   Future<bool> decreaseStock(int productId, int quantity) async {
     try {
-      debugPrint('🔄 Списание товара ID: $productId, количество: $quantity');
-
-      final allProducts = await getAllProducts();
-      final product = allProducts.firstWhere(
-        (p) => p.productId == productId,
-        orElse: () => throw Exception('Товар не найден'),
-      );
+      final product = await getProductById(productId);
+      if (product == null) return false;
 
       final currentQuantity = product.quantity ?? 0;
-      if (currentQuantity < quantity) {
-        throw Exception('Недостаточно товара на складе');
-      }
+      if (currentQuantity < quantity) return false;
 
       final newQuantity = currentQuantity - quantity;
-      debugPrint('📦 Новое количество: $newQuantity');
 
-      final response = await _apiService.put('/product/update/$productId', {
-        'quantity': newQuantity,
-        'name': product.name,
-        'price': product.price,
-        'description': product.description,
-        'category_id': product.categoryId,
-        'is_available': newQuantity > 0,
-      });
-
-      if (response is Map) {
-        return true;
-      }
-      return false;
+      return await updateProduct(
+        productId: productId,
+        name: product.name,
+        price: product.price,
+        categoryId: product.categoryId,
+        description: product.description,
+        imageUrl: product.imageUrl,
+        quantity: newQuantity,
+        isAvailable: newQuantity > 0,
+      );
     } catch (e) {
-      debugPrint('❌ Ошибка списания товара: $e');
       return false;
     }
   }
 
-  // Вспомогательный метод для обработки ответа с товарами
   List<Product> _processProductResponse(dynamic response) {
     if (response is List) {
       return response

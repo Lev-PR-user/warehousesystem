@@ -158,6 +158,7 @@ async function CreateTables(sequelize) {
         ProductCategories.hasMany(Products, { foreignKey: 'category_id' });
         Products.belongsTo(ProductCategories, { foreignKey: 'category_id' });
 
+        await seedData(users, ProductCategories, Products);
 
 
         await sequelize.sync({ force: false  }); 
@@ -168,6 +169,129 @@ async function CreateTables(sequelize) {
         console.error('Error creating tables:', error.message);
         throw error;
     }
+}
+
+async function seedData(users, ProductCategories, Products) {
+
+    const categories = await ProductCategories.bulkCreate([
+        { name: 'Молочные продукты' },
+        { name: 'Хлебобулочные изделия' },
+        { name: 'Напитки' },
+        { name: 'Овощи и фрукты' }
+    ]);
+
+    const products = await Products.bulkCreate([
+        {
+            name: 'Молоко "Домик в деревне"',
+            description: 'Пастеризованное молоко 3.2%, 1 литр',
+            price: 89.99,
+            category_id: categories[0].category_id,
+            quantity: 50,
+            is_available: true
+        },
+        {
+            name: 'Кефир "Простоквашино"',
+            description: 'Кефир 2.5%, 500 мл',
+            price: 65.50,
+            category_id: categories[0].category_id,
+            quantity: 35,
+            is_available: true
+        },
+        {
+            name: 'Сыр "Российский"',
+            description: 'Полутвёрдый сыр 50%, 200 г',
+            price: 159.90,
+            category_id: categories[0].category_id,
+            quantity: 20,
+            is_available: true
+        },
+        {
+            name: 'Хлеб "Бородинский"',
+            description: 'Ржаной хлеб с кориандром, 350 г',
+            price: 55.00,
+            category_id: categories[1].category_id,
+            quantity: 100,
+            is_available: true
+        },
+        {
+            name: 'Батон "Нарезной"',
+            description: 'Пшеничный батон, 300 г',
+            price: 42.00,
+            category_id: categories[1].category_id,
+            quantity: 80,
+            is_available: true
+        },
+        {
+            name: 'Вода "Святой источник"',
+            description: 'Питьевая вода негазированная, 1.5 л',
+            price: 35.99,
+            category_id: categories[2].category_id,
+            quantity: 200,
+            is_available: true
+        },
+        {
+            name: 'Сок "Добрый" апельсиновый',
+            description: 'Сок восстановленный, 1 л',
+            price: 99.99,
+            category_id: categories[2].category_id,
+            quantity: 45,
+            is_available: true
+        },
+        {
+            name: 'Яблоки "Голден"',
+            description: 'Сладкие яблоки, 1 кг',
+            price: 120.00,
+            category_id: categories[3].category_id,
+            quantity: 60,
+            is_available: true
+        },
+        {
+            name: 'Картофель',
+            description: 'Молодой картофель, 1 кг',
+            price: 45.00,
+            category_id: categories[3].category_id,
+            quantity: 150,
+            is_available: true
+        }
+    ]);
+
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash('password123', 10);
+
+    const usersList = await users.bulkCreate([
+        {
+            login: 'admin',
+            phone: '+79001234567',
+            email: 'admin@warehouse.ru',
+            hashed_password: hashedPassword,
+            role: 'admin',
+            avatar_url: null
+        },
+        {
+            login: 'ivan_kladovshik',
+            phone: '+79112345678',
+            email: 'ivan@warehouse.ru',
+            hashed_password: hashedPassword,
+            role: 'customer',
+            avatar_url: null
+        },
+        {
+            login: 'petr_manager',
+            phone: '+79223456789',
+            email: 'petr@warehouse.ru',
+            hashed_password: hashedPassword,
+            role: 'admin',
+            avatar_url: null
+        },
+        {
+            login: 'elena_sklad',
+            phone: '+79334567890',
+            email: 'elena@warehouse.ru',
+            hashed_password: hashedPassword,
+            role: 'customer',
+            avatar_url: null
+        }
+    ]);
 }
 
 module.exports = CreateTables;

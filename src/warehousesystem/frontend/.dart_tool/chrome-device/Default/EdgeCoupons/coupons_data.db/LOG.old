@@ -1,0 +1,36 @@
+2026/03/24-09:39:34.707 364c Reusing MANIFEST C:\Users\08A4~1\AppData\Local\Temp\flutter_tools.ef3d581f\flutter_tools_chrome_device.9f1dfbf5\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
+2026/03/24-09:39:34.715 364c Recovering log #42
+2026/03/24-09:39:34.718 364c Reusing old log C:\Users\08A4~1\AppData\Local\Temp\flutter_tools.ef3d581f\flutter_tools_chrome_device.9f1dfbf5\Default\EdgeCoupons/coupons_data.db/000042.log 
+2026/03/24-09:39:34.719 364c Delete type=0 #3
+2026/03/24-09:39:34.719 364c Delete type=0 #4
+2026/03/24-09:39:34.719 364c Delete type=0 #7
+2026/03/24-09:39:34.719 364c Delete type=2 #8
+2026/03/24-09:39:34.720 364c Delete type=0 #10
+2026/03/24-09:39:34.720 364c Delete type=2 #11
+2026/03/24-09:39:34.721 364c Delete type=0 #13
+2026/03/24-09:39:34.721 364c Delete type=2 #14
+2026/03/24-09:39:34.721 364c Delete type=0 #16
+2026/03/24-09:39:34.722 364c Delete type=2 #17
+2026/03/24-09:39:34.722 364c Delete type=0 #19
+2026/03/24-09:39:34.722 364c Delete type=2 #21
+2026/03/24-09:39:34.722 364c Delete type=0 #23
+2026/03/24-09:39:34.722 364c Delete type=2 #24
+2026/03/24-09:39:34.722 364c Delete type=0 #26
+2026/03/24-09:39:34.722 364c Delete type=2 #27
+2026/03/24-09:39:34.723 364c Delete type=0 #29
+2026/03/24-09:39:34.723 364c Delete type=2 #30
+2026/03/24-09:39:34.723 364c Delete type=0 #32
+2026/03/24-09:39:34.723 364c Delete type=0 #36
+2026/03/24-09:39:34.723 364c Delete type=0 #39
+2026/03/24-09:44:26.926 4288 Level-0 table #46: started
+2026/03/24-09:44:26.934 4288 Level-0 table #46: 681704 bytes OK
+2026/03/24-09:44:26.937 4288 Delete type=0 #42
+2026/03/24-09:44:26.937 a18 Compacting 4@0 + 1@1 files
+2026/03/24-09:44:26.946 a18 Generated table #47@0: 3 keys, 681704 bytes
+2026/03/24-09:44:26.947 a18 Compacted 4@0 + 1@1 files => 681704 bytes
+2026/03/24-09:44:26.948 a18 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/03/24-09:44:26.949 a18 Delete type=2 #34
+2026/03/24-09:44:26.949 a18 Delete type=2 #37
+2026/03/24-09:44:26.949 a18 Delete type=2 #40
+2026/03/24-09:44:26.949 a18 Delete type=2 #43
+2026/03/24-09:44:26.949 a18 Delete type=2 #46
